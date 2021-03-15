@@ -141,3 +141,23 @@ EOF`,
         'systemctl enable cardano-node'
     ]
 }
+
+export function installGLiveView(network: string): Array<string> {
+    return [
+        'mkdir -p /cardano/glive-view',
+        'curl -s -o /cardano/glive-view/glive-view.sh https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/gLiveView.sh',
+        'curl -s -o /cardano/glive-view/env https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/env',
+        'chmod 755 /cardano/glive-view/glive-view.sh',
+        'chown -R cardano /cardano/glive-view',
+        `sed -i /cardano/glive-view/env -e "s/\\#CONFIG=\\"\\\${CNODE_HOME}\\/files\\/config.json\\"/CONFIG=\\"\\/cardano\\/config\\/${network}\\/${network}-config.json\\"/g"`,
+        `sed -i /cardano/glive-view/env -e "s/\\#SOCKET=\\"\\\${CNODE_HOME}\\/sockets\\/node0.socket\\"/SOCKET=\\"\\/cardano\\/db\\/node.socket\\"/g"`
+    ]
+}
+
+export function installSimpleLiveView(): Array<string> {
+    return [
+        'mkdir -p /cardano/simple-live-view',
+        'git clone https://github.com/crypto2099/simpleLiveView /cardano/simple-live-view',
+        'chown -R cardano /cardano/simple-live-view'
+    ]
+}

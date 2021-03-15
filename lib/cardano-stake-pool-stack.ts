@@ -97,7 +97,9 @@ export class CardanoStakePoolStack extends cdk.Stack {
          ...bootstrap.downloadCardanoBinaries(),
          ...bootstrap.downloadConfiguration(props.network),
          ...bootstrap.createCardanoUser(),
-         ...bootstrap.createStartupScript(props.network, node.port)
+         ...bootstrap.createStartupScript(props.network, node.port),
+         ...bootstrap.installGLiveView(props.network),
+         ...bootstrap.installSimpleLiveView()
        );
 
       /**
