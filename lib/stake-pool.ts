@@ -49,10 +49,9 @@ export class CardanoStakePoolStack extends cdk.Stack {
       ]
     });
 
-    // const nodeSetup = bootstrap(props)
-    //   .filter((command: [string, number]) =>  command[1] < 1 || (! props.snapshotId))
-    //   .map((command: [string, number]) => { return command[0] })
-        
+    /**
+     * Block Producer and Relay Configuration
+     */
 
     const nodes: Array<{type: string; port: number; internetFacing: boolean, numInstances: number, urlPrefix?: string}> = [
       {
@@ -94,7 +93,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
        const userData = ec2.UserData.forLinux();
        userData.addCommands(
          ...bootstrap.attachDataDrive(), 
-         ...bootstrap.downloadCardanoBinaries(),
+         ...bootstrap.downloadOfficialCardanoBinaries(),
          ...bootstrap.downloadConfiguration(props.network),
          ...bootstrap.createCardanoUser(),
          ...bootstrap.createStartupScript(props.network, node.port),
@@ -111,6 +110,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
         vpcSubnets: {
           subnets: vpc.privateSubnets.slice(0,2)
         },
+        
         instanceType: ec2.InstanceType.of(props.instanceClass, props.instanceSize),
         machineImage: new ec2.AmazonLinuxImage({
           generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,

@@ -1,5 +1,5 @@
 import cdk = require('@aws-cdk/core');
-import { CardanoStakePoolStackProps } from './cardano-stake-pool-stack'
+import { CardanoBinariesBuildStackProps } from './binaries-build';
 
 export function attachDataDrive(): Array<string> {
     
@@ -12,7 +12,9 @@ export function attachDataDrive(): Array<string> {
     ]
 };
       
-export function buildCardanoNodeBinaries (props: CardanoStakePoolStackProps): Array<string> {
+export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps): Array<string> {
+
+    const s3Path = `s3://${props.s3BucketArn.split(':').slice(-1)[0]}/bin/`;
     
     return [
         // install dev libs and compilers
@@ -23,9 +25,9 @@ export function buildCardanoNodeBinaries (props: CardanoStakePoolStackProps): Ar
 
         // install Cabal
         'cd ~',
-        `wget https://downloads.haskell.org/~cabal/cabal-install-${props.cabalRelease}/cabal-install-${props.cabalRelease}-x86_64-unknown-linux.tar.xz`,
-        `tar -xf cabal-install-${props.cabalRelease}-x86_64-unknown-linux.tar.xz`,
-        `rm -f cabal-install-${props.cabalRelease}-x86_64-unknown-linux.tar.xz cabal.sig`,
+        
+        `wget https://downloads.haskell.org/~cabal/cabal-install-${props.cabalRelease}/cabal-install-${props.cabalRelease}-x86_64-ubuntu-16.04.tar.xz`,
+        `tar -xf cabal-install-${props.cabalRelease}-x86_64-ubuntu-16.04.tar.xz`,
         'mv cabal /usr/local/bin',
         'export PATH=/usr/local/bin:$PATH',
         'cabal update',
@@ -62,12 +64,14 @@ export function buildCardanoNodeBinaries (props: CardanoStakePoolStackProps): Ar
         'cabal update',
         'cabal build all',
         'cd ..',
-        `cp -p cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-node-${props.cardanoRelease}/x/cardano-node/build/cardano-node/cardano-node /cardano/bin/`,
-        `cp -p cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-cli-${props.cardanoRelease}/x/cardano-cli/build/cardano-cli/cardano-cli /cardano/bin/`,
+
+        // copy binaries to S3 bucket
+        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-node-${props.cardanoRelease}/x/cardano-node/build/cardano-node/cardano-node ${s3Path}`,
+        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-cli-${props.cardanoRelease}/x/cardano-cli/build/cardano-cli/cardano-cli ${s3Path}`,
     ]
 } 
 
-export function downloadCardanoBinaries(): Array<string> {
+export function downloadOfficialCardanoBinaries(): Array<string> {
     return [
         'yum install tar wget -y',
         'wget -O /tmp/cardano-node.tar.gz https://hydra.iohk.io/job/Cardano/cardano-node/cardano-node-linux/latest/download-by-type/file/binary-dist',

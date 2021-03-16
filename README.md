@@ -27,6 +27,12 @@ $ rm /tmp/AWSCLIV2.pkg
 ```
 $ aws configure --profile adamantas
 ```
+### Set Environment Variables
+```
+$ echo "export CDK_DEFAULT_ACCOUNT=311073648287" >> ~/.zshrc
+$ echo "export CDK_DEFAULT_REGION=us-west-2" >> ~/.zshrc
+$ source ~/.zshrc
+```
 
 ### Session Manager Plugin
 ```
@@ -40,6 +46,8 @@ $ rm -rf /tmp/sessionmanager*
 ```
 
 ```
+
+
 
 # Welcome to your CDK TypeScript project!
 
