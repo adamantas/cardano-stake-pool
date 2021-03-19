@@ -10,6 +10,7 @@ import * as bootstrap from './bootstrap';
 
 export interface CardanoBinariesBuildStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
+  instanceRole: iam.Role;
   cabalRelease: string;
   ghcRelease: string;
   libsodiumCommit: string;
@@ -27,36 +28,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
 
     super(scope, id, props);
 
-    /**
-     * Instance Role
-     */
-    const instanceRolePolicy = new iam.ManagedPolicy(this, 'InstanceRolePolicy', {
-      statements: [
-        new iam.PolicyStatement( {
-          effect: iam.Effect.ALLOW,
-          resources: [ 
-            props.s3BucketArn,  
-            `${props.s3BucketArn}/*`] ,
-          actions: [ 
-            's3:PutObject',
-            's3:GetObject',
-            's3:DeleteObject',
-            's3:ListBucket',
-            's3:AbortMultipartUpload',
-            's3:ListMultipartUploadParts',
-            's3:ListBucketMultipartUploads' 
-          ]
-        })
-      ]
-    });
-
-    const instanceRole = new iam.Role(this, 'InstanceRole', {
-      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
-        instanceRolePolicy
-      ]
-    });
+    
 
     /**
      * Build Server Auto Scaling Group
@@ -87,7 +59,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
       ],
       minCapacity: 0, 
       maxCapacity: 0,
-      role: instanceRole,
+      role: props.instanceRole,
       associatePublicIpAddress: false,
       userData: userData
     });

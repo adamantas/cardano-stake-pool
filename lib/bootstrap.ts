@@ -11,6 +11,24 @@ export function attachDataDrive(): Array<string> {
         'echo "UUID=$(sudo blkid -o value -s UUID /dev/sdb)  /cardano  xfs  defaults,nofail  0  2" >> /etc/fstab',
     ]
 };
+
+export function buildLibsodium(props: CardanoBinariesBuildStackProps): Array<string> {
+    
+    return [
+        'yum install git libtool -y',
+        'cd /cardano',
+        'export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"',
+        'export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"',
+        'git clone https://github.com/input-output-hk/libsodium',
+        'cd libsodium',
+        `git checkout ${props.libsodiumCommit}`,
+        './autogen.sh',
+        './configure',
+        'make',
+        'make install',
+        'cd ..',
+    ]
+}
       
 export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps): Array<string> {
 
@@ -42,27 +60,20 @@ export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps)
         'make install',
         'cd ..',
 
-        // install Libsodium
-        'export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"',
-        'export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"',
-        'git clone https://github.com/input-output-hk/libsodium',
-        'cd libsodium',
-        `git checkout ${props.libsodiumCommit}`,
-        './autogen.sh',
-        './configure',
-        'make',
-        'make install',
-        'cd ..',
+        ...buildLibsodium(props),
 
-        // install Cardano node
+        // build Cardano node
         'git clone https://github.com/input-output-hk/cardano-node.git',
         'cd cardano-node',
-        'git fetch --all --tags',
+        'git fetch --all --recurse-submodules --tags',
         `git checkout tags/${props.cardanoRelease}`,
+        `cabal configure -O0 -w ghc-${props.ghcRelease}`,
+        'echo -e "package cardano-crypto-praos\\n flags: -external-libsodium-vrf" > cabal.project.local',
         'export HOME="/root"',
+        'sed -i $HOME/.cabal/config -e "s/overwrite-policy:/overwrite-policy: always/g"',
         'cabal clean',
         'cabal update',
-        'cabal build all',
+        'cabal build cardano-cli cardano-node',
         'cd ..',
 
         // copy binaries to S3 bucket
@@ -79,6 +90,18 @@ export function downloadOfficialCardanoBinaries(): Array<string> {
         'tar -xzvf /tmp/cardano-node.tar.gz -C /tmp/cardano',
         'mkdir -p /cardano/bin',
         'cp /tmp/cardano/cardano-* /cardano/bin'
+    ]
+}
+
+export function downloadCompiledCardanoBinaries(s3BucketArn: string): Array<string> {
+
+    const s3Path = `s3://${s3BucketArn.split(':').slice(-1)[0]}/bin`;
+
+    return [
+        'mkdir -p /cardano/bin',
+        `aws s3 cp ${s3Path}/cardano-node /cardano/bin/`,
+        `aws s3 cp ${s3Path}/cardano-cli /cardano/bin/`,
+        'chmod +x /cardano/bin/cardano-node /cardano/bin/cardano-cli'
     ]
 }
 
@@ -103,6 +126,8 @@ export function createCardanoUser(): Array<string> {
     return [
         'useradd -m cardano',
         'sudo chown -R cardano /cardano',
+        'echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> /home/cardano/.bashrc',
+        'echo "export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> /home/cardano/.bashrc',
         'echo "export PATH=/cardano/bin:$PATH" >> /home/cardano/.bashrc',
         'echo "export CARDANO_NODE_SOCKET_PATH=/cardano/db/node.socket" >> /home/cardano/.bashrc',
     ]
@@ -126,6 +151,8 @@ After = network-online.target
 
 [Service]
 User = cardano
+Environment = "LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH"
+Environment = "PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 Type = simple
 WorkingDirectory = /cardano/bin
 ExecStart = /bin/bash -c '/cardano/bin/start-node.sh'
@@ -138,6 +165,12 @@ RestartSec = 5
 
 [Install]
 WantedBy = multi-user.target
+EOF`,
+    `cat > /etc/sudoers.d/cardano << EOF 
+%cardano ALL= NOPASSWD: /bin/systemctl start cardano-node
+%cardano ALL= NOPASSWD: /bin/systemctl stop cardano-node
+%cardano ALL= NOPASSWD: /bin/systemctl restart cardano-node
+%cardano ALL= NOPASSWD: /bin/systemctl status cardano-node
 EOF`,
         'mv /tmp/cardano-node.service /etc/systemd/system/cardano-node.service',
         'chmod 644 /etc/systemd/system/cardano-node.service',

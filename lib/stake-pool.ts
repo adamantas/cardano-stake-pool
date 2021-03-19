@@ -8,6 +8,9 @@ import elb = require('@aws-cdk/aws-elasticloadbalancingv2');
 import * as bootstrap from './bootstrap'
 
 export interface CardanoStakePoolStackProps extends cdk.StackProps {
+  vpc: ec2.Vpc;
+  instanceRole: iam.Role;
+  s3BucketArn: string;
   cabalRelease: string;
   ghcRelease: string;
   libsodiumCommit: string;
@@ -30,24 +33,6 @@ export class CardanoStakePoolStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props: CardanoStakePoolStackProps) {
 
     super(scope, id, props);
-
-    /**
-     * VPC
-     */
-
-    const vpc = new ec2.Vpc(this, 'VPC');
-
-    /**
-     * Instance Role
-     */
-
-    const instanceRole = new iam.Role(this, 'InstanceRole', {
-      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3FullAccess')
-      ]
-    });
 
     /**
      * Block Producer and Relay Configuration
@@ -77,7 +62,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
        */
 
       const sg = new ec2.SecurityGroup(this, `${node.type}SG`, {
-        vpc: vpc,
+        vpc: props.vpc,
         allowAllOutbound: true
       });
   
@@ -93,7 +78,8 @@ export class CardanoStakePoolStack extends cdk.Stack {
        const userData = ec2.UserData.forLinux();
        userData.addCommands(
          ...bootstrap.attachDataDrive(), 
-         ...bootstrap.downloadOfficialCardanoBinaries(),
+         ...bootstrap.buildLibsodium(props),
+         ...bootstrap.downloadCompiledCardanoBinaries(props.s3BucketArn),
          ...bootstrap.downloadConfiguration(props.network),
          ...bootstrap.createCardanoUser(),
          ...bootstrap.createStartupScript(props.network, node.port),
@@ -106,9 +92,9 @@ export class CardanoStakePoolStack extends cdk.Stack {
       */
     
       const asg = new asc.AutoScalingGroup(this, `${node.type}ASG`, {
-        vpc,
+        vpc: props.vpc,
         vpcSubnets: {
-          subnets: vpc.privateSubnets.slice(0,2)
+          subnets: props.vpc.privateSubnets.slice(0,2)
         },
         
         instanceType: ec2.InstanceType.of(props.instanceClass, props.instanceSize),
@@ -125,7 +111,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
           }
         ],
         minCapacity: 1,
-        role: instanceRole,
+        role: props.instanceRole,
         userData: userData,
         securityGroup: sg
       });
@@ -135,7 +121,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
        */
 
       const nlb = new elb.NetworkLoadBalancer(this, `${node.type}NLB`, {
-        vpc,
+        vpc: props.vpc,
         internetFacing: node.internetFacing
       });
 
