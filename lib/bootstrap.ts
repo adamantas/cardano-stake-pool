@@ -86,10 +86,10 @@ export function buildCardanoNodeBinaries (config: StakePoolConfig): Array<string
     ]
 } 
 
-export function selfTerminate(region: string): Array<string> {
+export function stopInstance(region: string): Array<string> {
     return [
         'instance_id=`curl http://169.254.169.254/latest/meta-data/instance-id`',
-        `aws ec2 terminate-instances --instance-ids \${instance_id} --region ${region}`
+        `aws ec2 stop-instances --instance-ids \${instance_id} --region ${region}`
     ]
 }
 

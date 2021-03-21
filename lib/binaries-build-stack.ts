@@ -9,7 +9,7 @@ import { StakePoolConfig } from './types';
 export interface CardanoBinariesBuildStackProps extends cdk.StackProps {
   vpc: ec2.Vpc,
   config: StakePoolConfig, 
-  selfTerminate?: boolean 
+  stopInstance?: boolean 
 };
 
 export class CardanoBinariesBuildStack extends cdk.Stack {
@@ -43,7 +43,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
             new iam.PolicyStatement( {
               effect: iam.Effect.ALLOW,
               resources: ['arn:aws:ec2:*:*:instance/*'] ,
-              actions: ['ec2:TerminateInstances'],
+              actions: ['ec2:StopInstances'],
               conditions: {
                 'StringEquals': {
                   'ec2:ResourceTag/InstanceType': 'binaries-build'
@@ -71,7 +71,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
     userData.addCommands(
       ...bootstrap.attachDataDrive(), 
       ...bootstrap.buildCardanoNodeBinaries(props.config),
-      ...props.selfTerminate ? bootstrap.selfTerminate(this.region) : ['echo "Not terminating"']
+      ...props.stopInstance ? bootstrap.stopInstance(this.region) : ['echo "Not stopping instance. Keep running"']
     );
 
     const instance = new ec2.Instance(this, 'BinariesBuild', {

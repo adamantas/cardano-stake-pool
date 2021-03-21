@@ -24,5 +24,5 @@ new CardanoStakePoolStack(app, 'CardanoStakePoolStack', {
 new CardanoBinariesBuildStack(app, 'CardanoBinariesBuildStack', {
    vpc: core.vpc,
    config,
-   selfTerminate: true
+   stopInstance: true
 });
