@@ -1,5 +1,5 @@
 import cdk = require('@aws-cdk/core');
-import { StakePoolConfig } from './types';
+import { StakePoolConfig, NodeType } from './types';
 
 export function attachDataDrive(): Array<string> {
     
@@ -32,7 +32,7 @@ export function buildLibsodium(commit: string): Array<string> {
       
 export function buildCardanoNodeBinaries (config: StakePoolConfig): Array<string> {
 
-    const s3Path = `s3://${config.s3BucketArn.split(':').slice(-1)[0]}/bin/`;
+    const s3Path = `s3://${config.s3BucketArn.split(':').slice(-1)[0]}/bin/${config.cardanoNodeRelease}/`;
 
     function file(url: string): string {
         return url.split('/').pop() || ''
@@ -86,10 +86,14 @@ export function buildCardanoNodeBinaries (config: StakePoolConfig): Array<string
     ]
 } 
 
-export function stopInstance(region: string): Array<string> {
-    return [
+export function stopInstance(region: string, stop?: boolean): Array<string> {
+    return stop ?
+    [
         'instance_id=`curl http://169.254.169.254/latest/meta-data/instance-id`',
         `aws ec2 stop-instances --instance-ids \${instance_id} --region ${region}`
+    ] :
+    [
+        'echo "Stop the instance manually to avoid unnecessary expense"'
     ]
 }
 
@@ -104,21 +108,24 @@ export function downloadOfficialCardanoBinaries(): Array<string> {
     ]
 }
 
-export function downloadCompiledCardanoBinaries(s3BucketArn: string): Array<string> {
+export function downloadCompiledCardanoBinaries(s3BucketArn: string, release: string, snapshotId?: string): Array<string> {
 
-    const s3Path = `s3://${s3BucketArn.split(':').slice(-1)[0]}/bin`;
+    const s3Path = `s3://${s3BucketArn.split(':').slice(-1)[0]}/bin/${release}`;
 
-    return [
+    return snapshotId 
+    ? [
         'mkdir -p /cardano/bin',
         `aws s3 cp ${s3Path}/cardano-node /cardano/bin/`,
         `aws s3 cp ${s3Path}/cardano-cli /cardano/bin/`,
         'chmod +x /cardano/bin/cardano-node /cardano/bin/cardano-cli'
     ]
+    : [`echo "Using binaries from snapshot ${snapshotId}"`]
 }
 
-export function downloadConfiguration(network: string): Array<string> {
+export function downloadConfiguration(network: string, snapshotId?: string): Array<string> {
     
-    return [
+    return snapshotId 
+    ? [
         `mkdir /cardano/config/${network}`,
         ...[
             'config',
@@ -129,7 +136,8 @@ export function downloadConfiguration(network: string): Array<string> {
             (k: string) => { return `wget -P /cardano/config/${network} https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/${network}-${k}.json`}
         ),
         `sed -i /cardano/config/${network}/${network}-config.json -e "s/TraceBlockFetchDecisions\\": false/TraceBlockFetchDecisions\\": true/g"`,
-    ];
+    ]
+    : [`echo "Using configuration from snapshot ${snapshotId}"`];
 }
 
 export function createCardanoUser(): Array<string> {
@@ -144,12 +152,30 @@ export function createCardanoUser(): Array<string> {
     ]
 }
 
-export function createStartupScript(network: string, port: number): Array<string> {
+export function createStartupScript(network: string, port: number, nodeType: NodeType): Array<string> {
 
     return [
-        `cat > /cardano/bin/start-node.sh << EOF 
+        nodeType == NodeType.Relay 
+        ? `cat > /cardano/bin/start-node.sh << EOF 
 #!/bin/bash
-/cardano/bin/cardano-node run --topology /cardano/config/${network}/${network}-topology.json --database-path /cardano/db  --socket-path /cardano/db/node.socket  --host-addr 0.0.0.0 --port ${port} --config /cardano/config/${network}/${network}-config.json
+/cardano/bin/cardano-node run \\
+    --topology /cardano/config/${network}/${network}-topology.json \\
+    --database-path /cardano/db \\
+    --socket-path /cardano/db/node.socket \\
+    --host-addr 0.0.0.0 \\
+    --port ${port} \\
+    --config /cardano/config/${network}/${network}-config.json
+EOF`
+        : `cat > /cardano/bin/start-node.sh << EOF 
+#!/bin/bash
+/cardano/bin/cardano-node run --topology /cardano/config/${network}/${network}-topology.json --database-path /cardano/db \\
+    --socket-path /cardano/db/node.socket \
+    --host-addr 0.0.0.0 \\
+    --port ${port} \\
+    --config /cardano/config/${network}/${network}-config.json \\
+    --shelley-kes-key /cardano/keys/kes.skey \\
+    --shelley-vrf-key /cardano/keys/vrf.skey \\
+    --shelley-operational-certificate /cardano/keys/node.cert
 EOF`,
         'chmod +x /cardano/bin/start-node.sh',
         `cat > /tmp/cardano-node.service << EOF 
@@ -187,6 +213,17 @@ EOF`,
         'chmod 644 /etc/systemd/system/cardano-node.service',
         'systemctl daemon-reload',
         'systemctl enable cardano-node'
+    ]
+}
+
+export function startNode(autoStart: boolean): Array<string> {
+    return autoStart ? 
+    [
+        'systemctl start cardano-node'
+    ] :
+    [
+        'echo "Start cardano node manually"',
+        'echo "sudo systemctl start cardano-node"'
     ]
 }
 

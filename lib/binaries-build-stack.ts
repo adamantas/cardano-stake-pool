@@ -46,7 +46,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
               actions: ['ec2:StopInstances'],
               conditions: {
                 'StringEquals': {
-                  'ec2:ResourceTag/InstanceType': 'binaries-build'
+                  'ec2:ResourceTag/InstanceType': `binaries-build-${props.config.network}`
                 }
               },
 
@@ -71,7 +71,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
     userData.addCommands(
       ...bootstrap.attachDataDrive(), 
       ...bootstrap.buildCardanoNodeBinaries(props.config),
-      ...props.stopInstance ? bootstrap.stopInstance(this.region) : ['echo "Not stopping instance. Keep running"']
+      ...bootstrap.stopInstance(this.region, props.stopInstance) 
     );
 
     const instance = new ec2.Instance(this, 'BinariesBuild', {
@@ -94,7 +94,7 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
       role: instanceRole,
     });
 
-    cdk.Tags.of(instance).add('InstanceType', 'binaries-build');
+    cdk.Tags.of(instance).add('InstanceType', `binaries-build-${props.config.network}`);
 
   }
 }

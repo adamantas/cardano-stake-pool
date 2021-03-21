@@ -1,12 +1,19 @@
-# [MANTA] Cardano Stake Pool Template
+# Cardano Stake Pool AWS CDK App
 ## Overview
-This template uses AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS.
+This AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS. 
+
+If you are not familiar with AWS CDK, you are welcome to read [this intro](https://docs.aws.amazon.com/cdk/latest/guide/home.html).
 
 
 
 ## Architecture
 [Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
 
+Key highlights of the architecture:
+* All infrastructure components reside in VPC (Virtual Private Cloud)
+
+* All nodes reside in the private subnets shielded by network load balancers (NLB)
+*  
 ## Prerequisites
 ### Node
 ```
@@ -41,15 +48,29 @@ $ sudo /tmp/sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b 
 $ rm -rf /tmp/sessionmanager*
 ```
 
-### Connect to binaries build instance
+## Build Cardano binaries
+This process is executed only once by launching `CardanoBinariesBuildStack`, which executes the following steps:
+1. Launches an EC2 instance
+2. Downloads Cardano binaries source code and their dependencies
+3. Builds the binaries from the source code
+4. Copies the binaries to S3 bucket
+5. Stops the EC2 instance
+
+### Launching binaris build stack
 ```
-$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'binaries-build']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
+[local]$ cdk synth
+[local]$ cdk cdk deploy CardanoBinariesBuildStack --profile ${aws_profile}
+```
+
+### Connect to binaries build EC2 instance
+```
+[local]$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'binaries-build']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
 
 ```
 
-### Monitor the build process
+### Monitoring the build process
 ```
-$ sudo watch tail /var/log/cloud-init-output.log 
+[binaries-build]$ sudo watch tail /var/log/cloud-init-output.log 
 ```
 
 ### Connect to relay instance
@@ -60,7 +81,7 @@ $ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-ins
 
 ### Monitor the sync process
 ```
-journalctl --unit=cardano-node --follow
+$ journalctl --unit=cardano-node --follow
 ```
 
 # Welcome to your CDK TypeScript project!

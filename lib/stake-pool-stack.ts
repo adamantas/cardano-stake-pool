@@ -69,12 +69,13 @@ export class CardanoStakePoolStack extends cdk.Stack {
        userData.addCommands(
          ...bootstrap.attachDataDrive(), 
          ...bootstrap.buildLibsodium(props.config.libsodiumCommit),
-         ...bootstrap.downloadCompiledCardanoBinaries(props.config.s3BucketArn),
-         ...bootstrap.downloadConfiguration(props.config.network),
+         ...bootstrap.downloadCompiledCardanoBinaries(props.config.s3BucketArn, props.config.cardanoNodeRelease, node.snapshotId),
+         ...bootstrap.downloadConfiguration(props.config.network, node.snapshotId),
          ...bootstrap.createCardanoUser(),
-         ...bootstrap.createStartupScript(props.config.network, node.port),
+         ...bootstrap.createStartupScript(props.config.network, node.port, node.nodeType),
          ...bootstrap.installGLiveView(props.config.network),
-         ...bootstrap.installSimpleLiveView()
+         ...bootstrap.installSimpleLiveView(),
+         ...bootstrap.startNode(node.autoStart)
        );
 
       /**
@@ -103,10 +104,12 @@ export class CardanoStakePoolStack extends cdk.Stack {
         minCapacity: 1,
         role: instanceRole,
         userData: userData,
+        
         securityGroup: sg
       });
 
       cdk.Tags.of(asg).add('NodeType', NodeType[node.nodeType]);
+      cdk.Tags.of(asg).add('CardanoNetwork', props.config.network);
 
       /**
        * Network Load Balancer
@@ -126,15 +129,17 @@ export class CardanoStakePoolStack extends cdk.Stack {
         targets: [asg]
       });
 
-      if (node.nodeType == NodeType.Relay) {
-
-        /**
-         * Domain Record
-         */
-
-        const zone = r53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      /**
+      * Domain Record
+      */
+      const zone = (node.nodeType == NodeType.Relay) 
+        ? r53.HostedZone.fromHostedZoneAttributes(this, `${NodeType[node.nodeType]}HostedZone`, {
           zoneName: props.config.publicDomain,
           hostedZoneId: props.config.publicDomainHostedZoneId 
+        }) 
+        : new r53.PrivateHostedZone(this, `${NodeType[node.nodeType]}HostedZone`, {
+          vpc: props.vpc,
+          zoneName: props.config.internalDomain
         });
 
         new r53.CnameRecord(this, `${NodeType[node.nodeType]}CnameRecord`, {
@@ -142,7 +147,6 @@ export class CardanoStakePoolStack extends cdk.Stack {
           recordName: `${node.urlPrefix}`,
           domainName: nlb.loadBalancerDnsName
         });
-      }
     });
   }
 }

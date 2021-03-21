@@ -11,10 +11,8 @@ const downloads: {[key:string]:{[key: string]: string}} = {
     }
 }
 
-const snapshotId = 'snap-02d290dcc0c3ecab6';
-
-export const config: StakePoolConfig = {
-    s3BucketArn: 'arn:aws:s3:::adamantas-stake-pool',
+export const testnetConfig: StakePoolConfig = {
+    s3BucketArn: 'arn:aws:s3:::adamantas-stake-pool-testnet',
     cabalRelease: '3.4.0.0',
     ghcRelease: '8.10.2',
     libsodiumCommit: '66f017f1',
@@ -30,10 +28,11 @@ export const config: StakePoolConfig = {
             instanceClass: ec2.InstanceClass.T3A,
             instanceSize: ec2.InstanceSize.LARGE,
             dataVolumeSizeGb: 24,
-            snapshotId: snapshotId,
+            snapshotId: 'snap-0d8175ecc3986ca6b',
             numInstances: 1,
             port: 6000,
-            urlPrefix: 'producer'
+            urlPrefix: 'producer-test',
+            autoStart: false
 
         },
         {
@@ -41,10 +40,47 @@ export const config: StakePoolConfig = {
             instanceClass: ec2.InstanceClass.T3A,
             instanceSize: ec2.InstanceSize.LARGE,
             dataVolumeSizeGb: 24,
-            snapshotId: snapshotId,
+            snapshotId: 'snap-0d8175ecc3986ca6b',
             numInstances: 1,
             port: 3001,
-            urlPrefix: 'relay'
+            urlPrefix: 'relay-test',
+            autoStart: true
+        }
+    ]
+}
+
+export const mainnetConfig: StakePoolConfig = {
+    s3BucketArn: 'arn:aws:s3:::adamantas-stake-pool-mainnet',
+    cabalRelease: '3.4.0.0',
+    ghcRelease: '8.10.2',
+    libsodiumCommit: '66f017f1',
+    cardanoNodeRelease: '1.25.1',
+    downloads,
+    network: 'mainnet',
+    publicDomainHostedZoneId: 'Z10226583C88D1ETXZRTV',
+    publicDomain: 'adamantas.io',
+    internalDomain: 'adamantas.internal',
+    nodeGroups: [
+        {
+            nodeType: NodeType.Producer,
+            instanceClass: ec2.InstanceClass.T3A,
+            instanceSize: ec2.InstanceSize.LARGE,
+            dataVolumeSizeGb: 24, 
+            numInstances: 1,
+            port: 6000,
+            urlPrefix: 'producer',
+            autoStart: false
+
+        },
+        {
+            nodeType: NodeType.Relay,
+            instanceClass: ec2.InstanceClass.T3A,
+            instanceSize: ec2.InstanceSize.LARGE,
+            dataVolumeSizeGb: 24,
+            numInstances: 1,
+            port: 3001,
+            urlPrefix: 'relay',
+            autoStart: true
         }
     ]
 }

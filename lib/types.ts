@@ -14,7 +14,8 @@ export interface StakePoolNodeConfig {
     snapshotId?: string,
     numInstances: number,
     port: number,
-    urlPrefix: string
+    urlPrefix: string,
+    autoStart: boolean
 }
 
 export interface StakePoolConfig {
