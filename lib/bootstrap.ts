@@ -192,6 +192,7 @@ EOF`,
 
 export function installGLiveView(network: string): Array<string> {
     return [
+        'yum install jq -y',
         'mkdir -p /cardano/glive-view',
         'curl -s -o /cardano/glive-view/glive-view.sh https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/gLiveView.sh',
         'curl -s -o /cardano/glive-view/env https://raw.githubusercontent.com/cardano-community/guild-operators/master/scripts/cnode-helper-scripts/env',

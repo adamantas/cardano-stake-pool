@@ -1,7 +1,7 @@
 # [MANTA] Cardano Stake Pool Template
 ## Overview
 This template uses AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS.
- 
+
 
 
 ## Architecture
@@ -52,6 +52,16 @@ $ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-ins
 $ sudo watch tail /var/log/cloud-init-output.log 
 ```
 
+### Connect to relay instance
+```
+$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'Relay']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
+
+```
+
+### Monitor the sync process
+```
+journalctl --unit=cardano-node --follow
+```
 
 # Welcome to your CDK TypeScript project!
 
