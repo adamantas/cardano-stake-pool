@@ -1,7 +1,11 @@
-# cardano-stake-pool
-"1-click" launch of Cardano stake pool in AWS
+# [MANTA] Cardano Stake Pool Template
+## Overview
+This template uses AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS.
+ 
+
+
 ## Architecture
-![Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
+[Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
 
 ## Prerequisites
 ### Node
@@ -26,12 +30,7 @@ $ rm /tmp/AWSCLIV2.pkg
 ### Configure AWS profile
 ```
 $ aws configure --profile adamantas
-```
-### Set Environment Variables
-```
-$ echo "export CDK_DEFAULT_ACCOUNT=311073648287" >> ~/.zshrc
-$ echo "export CDK_DEFAULT_REGION=us-west-2" >> ~/.zshrc
-$ source ~/.zshrc
+$ export aws_profile=adamantas
 ```
 
 ### Session Manager Plugin
@@ -42,11 +41,16 @@ $ sudo /tmp/sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b 
 $ rm -rf /tmp/sessionmanager*
 ```
 
-### Connect to instance
+### Connect to binaries build instance
 ```
+$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'binaries-build']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
 
 ```
 
+### Monitor the build process
+```
+$ sudo watch tail /var/log/cloud-init-output.log 
+```
 
 
 # Welcome to your CDK TypeScript project!

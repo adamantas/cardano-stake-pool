@@ -1,5 +1,5 @@
 import cdk = require('@aws-cdk/core');
-import { CardanoBinariesBuildStackProps } from './binaries-build';
+import { StakePoolConfig } from './types';
 
 export function attachDataDrive(): Array<string> {
     
@@ -12,7 +12,7 @@ export function attachDataDrive(): Array<string> {
     ]
 };
 
-export function buildLibsodium(props: CardanoBinariesBuildStackProps): Array<string> {
+export function buildLibsodium(commit: string): Array<string> {
     
     return [
         'yum install git libtool -y',
@@ -21,7 +21,7 @@ export function buildLibsodium(props: CardanoBinariesBuildStackProps): Array<str
         'export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"',
         'git clone https://github.com/input-output-hk/libsodium',
         'cd libsodium',
-        `git checkout ${props.libsodiumCommit}`,
+        `git checkout ${commit}`,
         './autogen.sh',
         './configure',
         'make',
@@ -30,9 +30,13 @@ export function buildLibsodium(props: CardanoBinariesBuildStackProps): Array<str
     ]
 }
       
-export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps): Array<string> {
+export function buildCardanoNodeBinaries (config: StakePoolConfig): Array<string> {
 
-    const s3Path = `s3://${props.s3BucketArn.split(':').slice(-1)[0]}/bin/`;
+    const s3Path = `s3://${config.s3BucketArn.split(':').slice(-1)[0]}/bin/`;
+
+    function file(url: string): string {
+        return url.split('/').pop() || ''
+    }
     
     return [
         // install dev libs and compilers
@@ -44,30 +48,30 @@ export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps)
         // install Cabal
         'cd ~',
         
-        `wget https://downloads.haskell.org/~cabal/cabal-install-${props.cabalRelease}/cabal-install-${props.cabalRelease}-x86_64-ubuntu-16.04.tar.xz`,
-        `tar -xf cabal-install-${props.cabalRelease}-x86_64-ubuntu-16.04.tar.xz`,
+        `wget ${config.downloads['cabal'][config.cabalRelease]}`,
+        `tar -xf ${file(config.downloads['cabal'][config.cabalRelease])}`,
         'mv cabal /usr/local/bin',
         'export PATH=/usr/local/bin:$PATH',
         'cabal update',
 
         // install GHC
         'cd /cardano',
-        `wget https://downloads.haskell.org/~ghc/${props.ghcRelease}/ghc-${props.ghcRelease}-x86_64-centos7-linux.tar.xz`,
-        `tar -xf ghc-${props.ghcRelease}-x86_64-centos7-linux.tar.xz`,
-        `rm -f ghc-${props.ghcRelease}-x86_64-centos7-linux.tar.xz`,
-        `cd ghc-${props.ghcRelease}`,
+        `wget ${config.downloads['ghc'][config.ghcRelease]}`,
+        `tar -xf ${file(config.downloads['ghc'][config.ghcRelease])}`,
+        `rm -f ${file(config.downloads['ghc'][config.ghcRelease])}`,
+        `cd ghc-${config.ghcRelease}`,
         './configure',
         'make install',
         'cd ..',
 
-        ...buildLibsodium(props),
+        ...buildLibsodium(config.libsodiumCommit),
 
         // build Cardano node
         'git clone https://github.com/input-output-hk/cardano-node.git',
         'cd cardano-node',
         'git fetch --all --recurse-submodules --tags',
-        `git checkout tags/${props.cardanoRelease}`,
-        `cabal configure -O0 -w ghc-${props.ghcRelease}`,
+        `git checkout tags/${config.cardanoNodeRelease}`,
+        `cabal configure -O0 -w ghc-${config.ghcRelease}`,
         'echo -e "package cardano-crypto-praos\\n flags: -external-libsodium-vrf" > cabal.project.local',
         'export HOME="/root"',
         'sed -i $HOME/.cabal/config -e "s/overwrite-policy:/overwrite-policy: always/g"',
@@ -77,10 +81,17 @@ export function buildCardanoNodeBinaries (props: CardanoBinariesBuildStackProps)
         'cd ..',
 
         // copy binaries to S3 bucket
-        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-node-${props.cardanoRelease}/x/cardano-node/build/cardano-node/cardano-node ${s3Path}`,
-        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${props.ghcRelease}/cardano-cli-${props.cardanoRelease}/x/cardano-cli/build/cardano-cli/cardano-cli ${s3Path}`,
+        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${config.ghcRelease}/cardano-node-${config.cardanoNodeRelease}/x/cardano-node/build/cardano-node/cardano-node ${s3Path}`,
+        `aws s3 cp cardano-node/dist-newstyle/build/x86_64-linux/ghc-${config.ghcRelease}/cardano-cli-${config.cardanoNodeRelease}/x/cardano-cli/build/cardano-cli/cardano-cli ${s3Path}`,
     ]
 } 
+
+export function selfTerminate(region: string): Array<string> {
+    return [
+        'instance_id=`curl http://169.254.169.254/latest/meta-data/instance-id`',
+        `aws ec2 terminate-instances --instance-ids \${instance_id} --region ${region}`
+    ]
+}
 
 export function downloadOfficialCardanoBinaries(): Array<string> {
     return [
