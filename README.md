@@ -169,7 +169,47 @@ Create two buckets in S3, for testnet and mainnet stacks. Keep in mind that S3 b
 ```
 _Note: It doesn't matter what the names of the buckets are, so if you feel creative, be it. We just need these buckets to specify their ARNs in the config_
 
+#### Configuring domain
+You can [reserve](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-register.html) a new domain name from AWS Route 53 or [transfer](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-transfer-to-route-53.html) the one you already have from another registrar. 
 
+Whatever approach you choose, you should have a hosted zone created for your domain in AWS Route 53. 
+
+
+### Cloning repo and modifying config
+```
+[local $] git clone https://github.com/adamantas/cardano-stake-pool.git
+[local $] cd cardano-stake-pool
+[local $] npm install
+```
+
+This should install all the required node modules. 
+
+Modify `/bin/config.ts` file to configure your pool settings. Here is an overview of the config options:
+
+* `downloads`: List of URLs for dependency binaries downloads by version
+* `s3BucketArn`: ARN of the S3 bucket we created above in the format `arn:aws:s3:::<bucket-name>`
+* `cabalRelease`: Release of Cabal (Haskell build system)
+* `ghcRelease`: Release of GHC (Haskell itself)
+* `libsodiumCommit`: Commit for Libsodium cryptography library
+* `cardanoNodeRelease`: Version of the `cardano-node` 
+* `network`: Cardano network, `mainnet` or `testnet`
+* `publicDomainHostedZoneId`: Hosted zone ID of your Route 53 domain that you registered or transferred above
+* `publicDomain`: your domain name
+* `internalDomain`: can be something like `<your-domain>.internal`. It is only used for node connections within VPC. 
+* `nodeGroups`: Block producer and relay autoscaling groups configuration
+    * `nodeType`: Type of the node: `Relay` or `Producer`
+    * `instanceClass`: Class of an EC2 instance, such as `t3a` or `m5`
+    * `instanceSize`: Size of an EC2 instance, such as `large` or `xlarge`
+    * `dataVolumeSizeGb`: Size in GB of an EBS volume containing Cardano ledger database. Currently 24Gb is appropriate, but increase for more when the ledger grows over time. 
+    * `snapshotId`: Optional. Snapshot ID of EBS volume, which can be restored when EC2 instance gets launched to avoid ledger sync from the genesis, which is painfully long. Initially, should be removed from config and only added back once the first (and only) ledger sync is completed. 
+    * `numInstances`: Number of desired instances in the autoscaling group. Minimum is 1, but can be made 2 for high availability scenario. 
+    * `port`: TCP port the node will be listening to
+    * `urlPrefix`: prefix that will be added to your domain name to form an endpoint URL of your node. 
+    * `autoStart`: whether to start `cardano-node` process automatically once the instance is launched. By default is `true` for relay and `false` for block producer node.
+
+
+### Synthesizing stacks
+_(yes, it's how it's called: 'synthesizing')_
 
 ## Build Cardano binaries
 This process is executed only once by launching `CardanoBinariesBuildStack`, which executes the following steps:
