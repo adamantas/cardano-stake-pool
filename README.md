@@ -113,7 +113,7 @@ Check if AWS CDK is already installed:
 ```
 If not:
 ```
-$ npm install -g aws-cdk
+[local $] npm install -g aws-cdk
 ```
 
 #### AWS CLI
@@ -123,17 +123,17 @@ Check if AWS CLI is already installed:
 ```
 If not:
 ```
-$ curl https://awscli.amazonaws.com/AWSCLIV2.pkg -o /tmp/AWSCLIV2.pkg
-$ sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
-$ rm /tmp/AWSCLIV2.pkg
+[local $] curl https://awscli.amazonaws.com/AWSCLIV2.pkg -o /tmp/AWSCLIV2.pkg
+[local $] sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
+[local $] rm /tmp/AWSCLIV2.pkg
 ```
 
 #### Session Manager Plugin
 ```
-$ curl https://s3.amazonaws.com/session-manager-downloads/plugin/latest/mac/sessionmanager-bundle.zip -o /tmp/sessionmanager-bundle.zip
-$ unzip /tmp/sessionmanager-bundle.zip -d /tmp
-$ sudo /tmp/sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b /usr/local/bin/session-manager-plugin
-$ rm -rf /tmp/sessionmanager*
+[local $] curl https://s3.amazonaws.com/session-manager-downloads/plugin/latest/mac/sessionmanager-bundle.zip -o /tmp/sessionmanager-bundle.zip
+[local $] unzip /tmp/sessionmanager-bundle.zip -d /tmp
+[local $] sudo /tmp/sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b /usr/local/bin/session-manager-plugin
+[local $] rm -rf /tmp/sessionmanager*
 ```
 
 #### Configure AWS profile
@@ -209,55 +209,157 @@ Modify `/bin/config.ts` file to configure your pool settings. Here is an overvie
 
 
 ### Synthesizing stacks
-_(yes, it's how it's called: 'synthesizing')_
+_(yes, this is how it's called: 'synthesizing')_
 
-## Build Cardano binaries
-This process is executed only once by launching `CardanoBinariesBuildStack`, which executes the following steps:
-1. Launches an EC2 instance
-2. Downloads Cardano binaries source code and their dependencies
-3. Builds the binaries from the source code
-4. Copies the binaries to S3 bucket
-5. Stops the EC2 instance
-
-### Launching binaris build stack
+Once you are satisfied with your config options, execute:
 ```
-[local]$ cdk synth
-[local]$ cdk cdk deploy CardanoBinariesBuildStack --profile ${aws_profile}
+[local $] cdk synth
 ```
-
-### Connect to binaries build EC2 instance
+You should see a list of the synthesized stacks in the output:
 ```
-[local]$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'binaries-build']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
+Successfully synthesized to /Users/dmitri/workplace/github/adamantas/cardano-stake-pool/cdk.out
+Supply a stack id (mainnet-core, testnet-core, mainnet-bin-build, mainnet-stake-pool, testnet-bin-build, testnet-stake-pool) to display its template.
 
 ```
 
-### Monitoring the build process
+_Lyrical Sidenote:_
+_Indeed, if you supply the name of a stack to the `cdk synth` command, you will get a long YAML template as an output. Try it:_
 ```
-[binaries-build]$ sudo watch tail /var/log/cloud-init-output.log 
-```
-
-### Connect to relay instance
-```
-$ aws ssm start-session --profile ${aws_profile} --target $(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == 'Relay']])].Instances[*].InstanceId | []" --output text --profile ${aws_profile})
-
+[local $] cdk synth testnet-core
 ```
 
-### Monitor the sync process
+_This is an AWS CloudFormation template that you'd have to write yourself (in YAML, Karl!!!), or JSON (which is even worse), if we didn't use AWS CDK. CDK makes it much more fun to code in TypeScript and has sensible defaults to shorten VPC launch code to just one line:_
 ```
-$ journalctl --unit=cardano-node --follow
+this.vpc = new ec2.Vpc(this, 'VPC');
+```
+_and for people who think that it's fun to code in markup languages, there is a special place you know where._
+
+### Deploying testnet core stack
+Do: 
+```
+[local $] cdk deploy testnet-core
+```
+This will deploy the testnet VPC. 
+
+_Note: CDK usually summarizes the changes it is about to make asking for confirmation. It's a good idea to review them and if everything looks alright, accept the changes with an almighty `'y'`_
+
+_While stack launch is in progress, you can do a few things to keep yourself entertained. You can watch the progress in the terminal console, yes. But also you can go to AWS Console and then to Cloud Formation and see the stack being launched, and then also you can go to VPC to see how your VPC is launching. Fascinating stuffs._
+
+### Deploying binaries build stack
+Do:
+```
+[local $] cdk deploy testnet-bin-build
+```
+This will again ask you for your almighty `'y'` and it should be relatively quick to launch an EC2 instance that will be building Cardano binaries for us. 
+
+_'Wait!' - you'll say. 'But how about the output from the compiler that we all love to stare at, watching it endlessly scrolling in front of our eyes?!!'_ 
+
+Don't you worry. We've got some for you.
+
+Connect to the EC2 instance:
+```
+[local $] scripts/connect-bb.sh testnet
 ```
 
-# Welcome to your CDK TypeScript project!
+and then just watch the tail of the log. There has to be an Irish tune with such a name: "Watching the Tail of the Log". If there is none, I should write one myself, or ain't I a true Irish? 
 
-This is a blank project for TypeScript development with CDK.
+```
+[bin-build $] sudo watch tail /var/log/cloud-init-output.log
+```
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+_Are we happy, Vincent?_
 
-## Useful commands
+So it will be compiling for about an hour and once it's done it will put the binaries in our S3 bucket and stop itself, so you don't have to worry about this instance hanging around and begging for money. 
 
- * `npm run build`   compile typescript to js
- * `npm run watch`   watch for changes and compile
- * `npm run test`    perform the jest unit tests
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk synth`       emits the synthesized CloudFormation template
+You can check the compiled binaries on S3:
+```
+[local $] aws s3 ls s3://<your-bucket-name>/bin/<cardano-node-release-version>/
+```
+
+If it's there, we are happy campers. 
+
+### Launch testnet stake pool
+Do:
+```
+[local $] cdk deploy testnet-stake-pool
+
+```
+Okey, you should get used to the drill already. You pressed your almighty `'y'`, you watched some stack launch progress in the terminal console and eventually it has finished. Now what? 
+
+Well, what has happened behind the scenes, the two EC2 instances have been launched: one relay and one block producer (unless you did something funky in config and launched many more of them). We can go to AWS Console/EC2 to check them out, but it's much more fun to connect and see what's going on. 
+
+In our config, we specified that the relay instance should autostart the `cardano-node` process, and block producer should not. So?
+
+_-'Where are we going?'_ 
+
+_- Relay!!!_
+
+Do:
+```
+[local $] scripts/connect-relay.sh testnet
+```
+
+Okey, so now we are in really unfamiliar land, so let's explore. First of all we don't know even who we are and where we are. So, let's find out!
+```
+[relay $] whoami
+ssm-user
+[relay $] pwd
+/usr/bin
+```
+And... It's totally boring. There is nothing more pathetic than be some noname in noland. That's not who we wanted to be when we grow up. Not some stupid `ssm-user` and not in `/usr/bin` directory. We wanted to be `cardano`! Okey, may be we should try something. May be some magic will happen?
+
+Do:
+```
+[relay $] sudo su cardano
+[relay $] cd /cardano
+[relay $] whoami
+cardano
+[relay $] pwd
+/cardano
+```
+OMG!!! It worked! We are `cardano` in `/cardano`! We are more Cardanian than Kim Cardanian! 
+
+_Note: if you got a message that cardano user doesn't exist, yes it will feel like there is no more Christmas, but this is because you are too quick. Instance has not been able to fully go through the bootstrap scripts and create this user. Wait a few minutes and try to become Cardanian again. It's all about faith, you know._
+
+Now let's explore some more. Do:
+```
+[relay $] ls
+bin  config  db  glive-view  libsodium  simple-live-view
+```
+This is already looking like a pleasant scenary! We have `config`, `db` and even two views, one simple and one not so much. But first, let's see if our `cardano-node` process is running, as it supposed to. 
+
+Do:
+```
+[relay $] sudo systemctl status cardano-node
+```
+
+You should see some text in the output, but what we are looking to see is one phrase: `Active: active (running)` It should be green. If it's there, we are good. 
+
+Now let's see some output from this process. Do:
+```
+[relay $] journalctl --unit=cardano-node --follow
+```
+
+_Following the leader, the leader, the leader..._
+
+And we see lots and lots of errors and warnings and then errors again! Feels like the house is on fire! What's going on?
+
+According to some smart people, those are not critical issues, but rather messages that we fail to connect to some nodes, and it's totally normal. Even in life not everyone wants to be our friends. Same seems to be in Cardanoland. But what we really interested in is if our chain gets longer. So let's find out. Just do `Ctrl+C` to quit and then do:
+
+```
+[relay $] journalctl --unit=cardano-node --follow | grep 'Chain extended'
+```
+
+You might need to wait a little for the first message to appear, but it should be here soon. If you see at least one, then our process is working as expected and the chain adds blocks. 
+
+Now let's expand our horizons a bit. Remember the views we've seen in the `/cardano` directory? So stop watching the chain grow, hit `Ctrl+C` and lets do this:
+
+```
+[relay $] glive-view/glive-view.sh
+```
+
+If you see what I see, you should be pretty excited! It's a very pretty view of overall stats about our relay node. What we need to pay attention to is where it says `Status: syncing (xx.xx%)`. We need to it to get to 100%, but that's going to take awhile. So let's get some wine, may be watch a good movie, may be go to bed if it's late and check for this process later. 
+
+### Creating a snapshot of the cardano data volume
+In our stake pool architecture, all cardano related data resides on it's own EBS volume that is attached to the EC2 instance. Which is very convenient, since we can take a snapshot of it and restore it during the instance launch with all the historical transactions already there and all that will be needed is to sync the ledger from the point the snapshot was taken to the current moment. 
+
