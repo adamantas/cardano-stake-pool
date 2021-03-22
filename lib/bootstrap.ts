@@ -113,19 +113,20 @@ export function downloadCompiledCardanoBinaries(s3BucketArn: string, release: st
     const s3Path = `s3://${s3BucketArn.split(':').slice(-1)[0]}/bin/${release}`;
 
     return snapshotId 
-    ? [
+    ? [`echo "Using binaries from snapshot ${snapshotId}"`]
+    : [
         'mkdir -p /cardano/bin',
         `aws s3 cp ${s3Path}/cardano-node /cardano/bin/`,
         `aws s3 cp ${s3Path}/cardano-cli /cardano/bin/`,
         'chmod +x /cardano/bin/cardano-node /cardano/bin/cardano-cli'
     ]
-    : [`echo "Using binaries from snapshot ${snapshotId}"`]
 }
 
 export function downloadConfiguration(network: string, snapshotId?: string): Array<string> {
     
     return snapshotId 
-    ? [
+    ? [`echo "Using configuration from snapshot ${snapshotId}"`]
+    : [
         `mkdir /cardano/config/${network}`,
         ...[
             'config',
@@ -137,7 +138,6 @@ export function downloadConfiguration(network: string, snapshotId?: string): Arr
         ),
         `sed -i /cardano/config/${network}/${network}-config.json -e "s/TraceBlockFetchDecisions\\": false/TraceBlockFetchDecisions\\": true/g"`,
     ]
-    : [`echo "Using configuration from snapshot ${snapshotId}"`];
 }
 
 export function createCardanoUser(): Array<string> {

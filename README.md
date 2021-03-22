@@ -1,27 +1,90 @@
-# Cardano Stake Pool AWS CDK App
+# Manta Project (Cardano Stake Pool)
 ## Overview
-This AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS. 
+This AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS using true IaaS (Infrastructure-as-a-Code) principles.
 
 If you are not familiar with AWS CDK, you are welcome to read [this intro](https://docs.aws.amazon.com/cdk/latest/guide/home.html).
 
+The rationale behind the Manta Project can be summarized by the following points:
+
+### Dev Ops Perspective (mainnet)
+* Standard and predictable way of launching Cardano stake pool on AWS
+* Hands-free deployment at minimal time
+* 99.99% availability 
+* Painless rollout of upgrades
+* Pre-configured state of the art monitoring
+
+### Developer Perspective (testnet)
+* Launch infrastructure in minutes only when needed and terminate when done
+* Pre-compile the latest binaries
+* Experiment with decentralized topology for the new features 
+    * Many instances of full functioning stake pools can be launched and functioning in minutes 
+
+### Security Perspective
+* Peer-reviewed infrastructure code, scanned for security loopholes
+* Best practices for cold-keys management
+
+### Community Benefit Perspective
+* Minimize time for new stake pool operators to be operational, which will further help decentralization of Cardano network
+* Predictable cost estimates
+    * Ways of optimizing the running costs
+    * Transparency in what it takes to run a stake pool
+* Raising the bar of quality for the stake pools launched in AWS 
+
+### Educational Perspective
+* Promoting AWS CDK as a standard for provisioning resources on AWS
+* Introduction to TypeScript for anyone unfamiliar with it
 
 
 ## Architecture
-[Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
+![Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
 
-Key highlights of the architecture:
+### Key highlights of the architecture:
 * All infrastructure components reside in VPC (Virtual Private Cloud)
+    * Separate VPCs for mainnet and testnet stacks
+* All nodes reside in the private subnets shielded by network load balancers (NLBs)
+*  Access to the node instances provided by Systems Manager (SSM) using AWS access keys. No SSH and no private keys are required.
+* EBS volume snapshots for quick node instances launch without full sync of the ledger
+* Dedicated instance for building Cardano node binaries which are placed to central location in S3 and used by all launched node instances
+    * Auto-stopped when done to save costs
+* Static relay endpoint with a custom domain name
+* Autoscaling with minimum configuration of 1 relay and 1 block producer.      
+    * Launching more instances for high availability is only a change of parameter. 
 
-* All nodes reside in the private subnets shielded by network load balancers (NLB)
-*  
-## Prerequisites
-### Node
+## Launching your own Cardano stake pool
+_This guide has been tested only on MacOS (Catalina 10.15.7)_
+
+Here is a brief summary of the steps required to launch your own Cardano stake pool using Manta Project AWS CDK application. 
+
+1. Complete pre-requisites
+2. Clone repository
+
+[testnet]
+
+3. Deploy testnet VPC 
+4. Deploy testnet binaries build instance stack
+5. Monitor binaries build instance to complete the build (~1 hr)
+6. Deploy stake pool stack to the testnet
+7. Monitor until ledger fully syncs (~10 hrs)
+8. Take snapshot of the EBS volume
+9. Delete the stake pool stack 
+10. Change stack configuration to use the EBS volume snapshot
+11. Launch stake pool stack again with EBS volume snapshot (~5 min)
+    * Use of EBS snapshot and pre-built binaries saves ~ 11 hrs
+    * Now you can create/destroy the testnet stake pool infrastructure at your convenience
+
+[mainnet]
+
+
+
+### Prerequisites
+
+#### Node
 ```
 $ brew install node
 $ node --version
 $ npm --version
 ```
-### AWS CDK
+#### AWS CDK
 ```
 $ npm install -g aws-cdk
 $ npm install
