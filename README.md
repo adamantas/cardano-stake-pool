@@ -1,6 +1,6 @@
 # Manta Project (Cardano Stake Pool)
 ## Overview
-This AWS CDK (AWS Cloud Development Kit) to automate launching a Cardano stake pool in AWS using true IaaS (Infrastructure-as-a-Code) principles.
+This is an AWS CDK (AWS Cloud Development Kit) app to automate launching a Cardano stake pool in AWS using true IaC (Infrastructure-as-Code) principles.
 
 If you are not familiar with AWS CDK, you are welcome to read [this intro](https://docs.aws.amazon.com/cdk/latest/guide/home.html).
 
@@ -127,6 +127,17 @@ If not:
 [local $] sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
 [local $] rm /tmp/AWSCLIV2.pkg
 ```
+
+#### JQ
+Check if JQ is installed:
+```
+[local $] jq --version
+```
+If, not:
+```
+[local $] brew install jq
+```
+
 
 #### Session Manager Plugin
 ```
@@ -362,4 +373,32 @@ If you see what I see, you should be pretty excited! It's a very pretty view of 
 
 ### Creating a snapshot of the cardano data volume
 In our stake pool architecture, all cardano related data resides on it's own EBS volume that is attached to the EC2 instance. Which is very convenient, since we can take a snapshot of it and restore it during the instance launch with all the historical transactions already there and all that will be needed is to sync the ledger from the point the snapshot was taken to the current moment. 
+
+First let's see if the ledger has been fully synced. Do:
+```
+[relay $] /cardano/glive-view/glive-view.sh
+```
+
+If you see that instead of `syncing` message there is `Tip (diff)` one, it means that the ledger is synced and now we can take the snapshot of it. 
+
+Now do:
+```
+[local $] scripts/take-snapshot.sh testnet
+```
+
+You should see the output similar to this:
+```
+{
+    "Description": "cardano-mainnet",
+    "Encrypted": false,
+    "OwnerId": "311073648287",
+    "Progress": "",
+    "SnapshotId": "snap-0cbff76edab861c35",
+    "StartTime": "2021-03-22T17:46:01+00:00",
+    "State": "pending",
+    "VolumeId": "vol-0bb645e0771ee5794",
+    "VolumeSize": 24,
+    "Tags": []
+}
+```
 

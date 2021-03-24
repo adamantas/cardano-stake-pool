@@ -7,6 +7,7 @@ import elb = require('@aws-cdk/aws-elasticloadbalancingv2');
 
 import * as bootstrap from './bootstrap'
 import { NodeType, StakePoolConfig, StakePoolNodeConfig } from './types';
+import { Tags } from '@aws-cdk/core';
 
 export interface CardanoStakePoolStackProps extends cdk.StackProps {
   vpc: ec2.Vpc,
@@ -81,7 +82,7 @@ export class CardanoStakePoolStack extends cdk.Stack {
       /**
       * Auto Scaling Group
       */
-    
+      
       const asg = new asc.AutoScalingGroup(this, `${NodeType[node.nodeType]}ASG`, {
         vpc: props.vpc,
         vpcSubnets: {
@@ -107,6 +108,8 @@ export class CardanoStakePoolStack extends cdk.Stack {
         
         securityGroup: sg
       });
+
+     
 
       cdk.Tags.of(asg).add('NodeType', NodeType[node.nodeType]);
       cdk.Tags.of(asg).add('CardanoNetwork', props.config.network);
