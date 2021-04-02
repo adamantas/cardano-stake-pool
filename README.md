@@ -386,19 +386,70 @@ Now do:
 [local $] scripts/take-snapshot.sh testnet
 ```
 
-You should see the output similar to this:
+Give the script time to complete (about a minute for 24gb volume) and then copy the snapshot id (snap-xxxxxxxxxx) to your `config.ts` file under the `node_groups`, so it looks similar to this:
+
 ```
-{
-    "Description": "cardano-mainnet",
-    "Encrypted": false,
-    "OwnerId": "311073648287",
-    "Progress": "",
-    "SnapshotId": "snap-0cbff76edab861c35",
-    "StartTime": "2021-03-22T17:46:01+00:00",
-    "State": "pending",
-    "VolumeId": "vol-0bb645e0771ee5794",
-    "VolumeSize": 24,
-    "Tags": []
-}
+nodeGroups: [
+        {
+            nodeType: NodeType.Producer,
+            instanceClass: ec2.InstanceClass.T3A,
+            instanceSize: ec2.InstanceSize.LARGE,
+            dataVolumeSizeGb: 24,
+            snapshotId: 'snap-xxxxxxxxxxxxxx',
+            numInstances: 1,
+            port: 6000,
+            urlPrefix: 'producer-test',
+            autoStart: false
+
+        },
+        {
+            nodeType: NodeType.Relay,
+            instanceClass: ec2.InstanceClass.T3A,
+            instanceSize: ec2.InstanceSize.LARGE,
+            dataVolumeSizeGb: 24,
+            snapshotId: 'snap-xxxxxxxxxxxxxxx',
+            numInstances: 1,
+            port: 3001,
+            urlPrefix: 'relay-test',
+            autoStart: true
+        }
+]
 ```
 
+Now that you have a ledger snapshot, let's see how quickly you can recreate the whole stake pool in testnet once it gets deleted. Should be just a few minutes. 
+
+### Deleting the stake pool
+You can delete the stake pool by one command.
+```
+[local $] scripts/delete-stake-pool.sh testnet-stake-pool
+```
+
+Now let's launch the stake pool in testnet again
+
+### Restoring stake pool 
+To restore the stake pool, you just need to redeploy the stack. It will take the compiled binaries from S3 and restore the EBS volume containing the ledger from the snapshot. 
+```
+[local $] cdk deploy testnet-stake-pool
+```
+Once the pool is launched, follow the same instructions above to launch GLiveView and see if your relay node is performing fine. 
+
+### Launching stake pool in mainnet
+Once you got comfortable with launching/deleting/restoring stake pool in testnet, you might want to try the real thing. Launch it in mainnet. Ooo, scary, isn't it? But don't worry it's exactly the same as launching in testnet, you only should substitute the word `testnet` for `mainnet` in all your commands. Try it and see it how it works for you. 
+
+### Musings about air-gapped server
+If you hear this term for the first time in your life and thinking 'what the hell is 'air-gapped server?', you are not alone. I was thinking exactly the same thing. It seemed to me that this term comes more from the world of many shades of gray, where choking servers out of air is considered a fancy kink. But, apparently, it means that it's the server 'that has a gap of air around it', in a sense that it's not connected to any network. This is clearly the case of some geeky poetical metaphorism, because even you have a gap of air, it can still be connected (heard of Wi-Fi, hello?), and if you want to say that it's not connected to anything, why don't you just say so? But according to Wikipedia this analogy comes not from anywhere but from plumbing. And if you grew up in 90s, you know how we all wanted to be German plumbers, but by some wicked twist of fate we ended up in IT. Anyhow, it's called "air-gapped server", so we stick with this term. And what it is really needed for is to "keep your cold keys". 
+
+>  Keep your cold keys away from me, would you?
+>  -  _Your hot server_
+
+When I asked on the Telegram _where_ should I keep my cold keys, I got unequivocal answer 
+>  on an air-gapped server enclosed in a _faraday cage_
+
+Wow. Further it goes, more interesting it gets. Now we also need some cage, because apparently just having air gap is not enough. I googled it and it seems that even if your server is not connected to any network it's still possible, theoretically, to steal valuable information by monitoring electromagnetic fields. So next time you see a random dude hanging around your house with something looking like a metallodetector, you know what he is doing. Especially if it is Bill Gates, who recently got really crafty with this 5G stuff, you know. 
+
+But I'll leave it up to you to find this practical fine edge between carelesness of sticking your cold keys into the hot environment and downright non-sensical paranoia of keeping servers in faraday cages, so swipers couldn't swipe them. 
+
+As for me, I just took old gaming desktop computer my son didn't need anymore, disabled all network interfaces in BIOS, installed Ubuntu LTS with hard drive encryption option, and have been transferring all data between cold and hot environments on a USB flash drive. And installed video cameras and barbed wire perimeter all around the house. (kidding)
+
+### Configuring your stake pool
+This part doesn't make sense to automate and script. It's impossible to do it end-to-end, since it envolves passing signed transactions between you air-gapped server and 'hot' server, and also, as a stake pool operator, you need to know all these commands by hand. I have followed excellent [CoinCashew Tutorial](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) and it worked well for me. 

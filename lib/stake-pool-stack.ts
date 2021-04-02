@@ -32,7 +32,8 @@ export class CardanoStakePoolStack extends cdk.Stack {
                   `${props.config.s3BucketArn}/*`
               ] ,
               actions: [ 
-                's3:GetObject'
+                's3:GetObject',
+                's3:PutObject'
               ]
           })
       ]

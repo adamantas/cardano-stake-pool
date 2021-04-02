@@ -15,18 +15,21 @@ const app = new cdk.App();
  * Mainnet 
  */
 const mainnetCore = new CardanoStakePoolCoreStack(app, 'mainnet-core', {
-   s3BucketArn: mainnetConfig.s3BucketArn
+   s3BucketArn: mainnetConfig.s3BucketArn,
+   terminationProtection: true
 });
 
 new CardanoStakePoolStack(app, 'mainnet-stake-pool', {
    vpc: mainnetCore.vpc,
-   config: mainnetConfig
+   config: mainnetConfig,
+   terminationProtection: true
 });
 
 new CardanoBinariesBuildStack(app, 'mainnet-bin-build', {
    vpc: mainnetCore.vpc,
    config: mainnetConfig,
-   stopInstance: true
+   stopInstance: true,
+   terminationProtection: false
 });
 
 /**
@@ -34,16 +37,19 @@ new CardanoBinariesBuildStack(app, 'mainnet-bin-build', {
  */
 
 const testnetCore = new CardanoStakePoolCoreStack(app, 'testnet-core', {
-   s3BucketArn: testnetConfig.s3BucketArn
+   s3BucketArn: testnetConfig.s3BucketArn,
+   terminationProtection: true
 });
 
 new CardanoStakePoolStack(app, 'testnet-stake-pool', {
    vpc: testnetCore.vpc,
-   config: testnetConfig
+   config: testnetConfig,
+   terminationProtection: false
 });
 
 new CardanoBinariesBuildStack(app, 'testnet-bin-build', {
    vpc: testnetCore.vpc,
    config: testnetConfig,
-   stopInstance: true
+   stopInstance: true,
+   terminationProtection: false
 });
