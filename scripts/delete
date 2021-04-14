@@ -1,0 +1,36 @@
+#!/bin/bash
+
+if  [ -z "$1" ] || \
+    [[ "$1" != "bb"  && "$1" != "core" && "$1" != "sp" ]] || \
+    [ -z "$2" ] || \
+    [[ "$2" != "mainnet"  && "$2" != "testnet" ]]; then
+    echo "usage: scripts/delete [bb|core|sp] [testnet|mainnet]"
+    exit 1
+fi
+
+case "$1" in 
+    "bb")
+    STACK="$2-bin-build"
+    ;;
+    "core")
+    STACK="$2-core"
+    ;;
+    "sp")
+    STACK="$2-stake-pool"
+    ;;
+esac
+
+read -p "Are you sure you want to delete ${STACK}? (y/n) " -n 1 -r  
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    STATUS="CREATE_COMPLETE"
+    aws cloudformation delete-stack --stack-name "${STACK}"  
+    while [ ! -z "${STATUS}" ] && [ "${STATUS}" != "null" ]
+    do
+        echo -e ".\c"
+        STATUS=$(aws cloudformation describe-stacks --query "Stacks[?StackName == '${STACK}'].StackStatus | [0]")
+        sleep 10
+    done
+    echo
+    echo "Stack ${STACK} deleted succesfully"
+fi

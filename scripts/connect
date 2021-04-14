@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if  [ -z "$1" ] || \
+    [[ "$1" != "bb"  && "$1" != "producer" && "$1" != "relay" ]] || \
+    [ -z "$2" ] || \
+    [[ "$2" != "mainnet"  && "$2" != "testnet" ]]; then
+    echo "usage: scripts/connect [bb|producer|relay] [testnet|mainnet]"
+    exit 1
+fi
+
+case "$1" in 
+    "bb")
+    NODE_TYPE="BinBuild"
+    ;;
+    "producer")
+    NODE_TYPE="Producer"
+    ;;
+    "relay")
+    NODE_TYPE="Relay"
+    ;;
+esac
+
+NETWORK=$2
+
+INSTANCE_ID=$(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == '${NODE_TYPE}'] && Tags[?Value == '${NETWORK}']])].Instances[*].InstanceId | []" --output text)
+
+if [ -z "${INSTANCE_ID}" ]; then
+    echo "Can't connect to the ${NODE_TYPE} EC2 instance in ${NETWORK}."
+    echo "It may still be launching, so wait couple of minutes and try again."
+    echo "If it still doesn't work, check if there is a ${NODE_TYPE} EC2 instance running in the AWS Console "
+    exit 1
+fi
+
+aws ssm start-session --target ${INSTANCE_ID}

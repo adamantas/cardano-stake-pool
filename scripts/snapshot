@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if  [ -z "$1" ] || \
+    [[ "$1" != "producer" && "$1" != "relay" ]] || \
+    [ -z "$2" ] || \
+    [[ "$2" != "mainnet"  && "$2" != "testnet" ]]; then
+    echo "usage: scripts/snapshot [producer|relay] [testnet|mainnet]"
+    exit 1
+fi
+
+case "$1" in 
+    "producer")
+    NODE_TYPE="Producer"
+    ;;
+    "relay")
+    NODE_TYPE="Relay"
+    ;;
+esac
+
+NETWORK=$2
+
+VOLUME_ID=$(aws ec2 describe-instances --query "Reservations[?not_null(Instances[?State.Name == 'running' && Tags[?Value == '${NODE_TYPE}'] && Tags[?Value == '${NETWORK}']])].Instances[*].BlockDeviceMappings[?DeviceName == '/dev/sdb'].Ebs.VolumeId | []" --output text)
+if [ -z "${VOLUME_ID}" ]; then
+    echo "Can't take EBS volume snapshot of ${NODE_TYPE} in ${NETWORK}."
+    echo "The instance may still be launching, so wait couple of minutes and try again."
+    echo "If it still doesn't work, check if there is a ${NODE_TYPE} EC2 instance running in the AWS Console "
+    exit 1
+fi
+
+echo "Taking a snapshot of EBS volume: ${VOLUME_ID} of the ${NODE_TYPE} node"
+SNAPSHOT_ID=$(aws ec2 create-snapshot --volume-id ${VOLUME_ID} --description "cardano-${NODE_TYPE}-${NETWORK}" | jq '.SnapshotId' | sed 's/\"//g')
+STATE="pending"
+while [ ${STATE} != "completed" ]
+do
+    echo -e ".\c"
+    STATE=$(aws ec2 describe-snapshots --snapshot-id ${SNAPSHOT_ID} | jq '.Snapshots[0].State' | sed 's/\"//g')
+    sleep 10
+done
+
+echo -e "\nCreated snapshot of EBS volume with id: ${SNAPSHOT_ID}"
