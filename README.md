@@ -10,7 +10,7 @@ This is an AWS CDK (AWS Cloud Development Kit) app to automate launching a Carda
 
 If you are not familiar with AWS CDK, you are welcome to read [this intro](https://docs.aws.amazon.com/cdk/latest/guide/home.html).
 
-The rationale behind the Manta Project can be summarized by the following points:
+The rationale behind this project can be summarized by the following points:
 
 ### Dev Ops Perspective (mainnet)
 * Standard and predictable way of launching Cardano stake pool on AWS
