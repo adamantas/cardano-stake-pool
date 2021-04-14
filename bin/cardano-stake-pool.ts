@@ -38,7 +38,7 @@ new CardanoBinariesBuildStack(app, 'mainnet-bin-build', {
 
 const testnetCore = new CardanoStakePoolCoreStack(app, 'testnet-core', {
    s3BucketArn: testnetConfig.s3BucketArn,
-   terminationProtection: true
+   terminationProtection: false
 });
 
 new CardanoStakePoolStack(app, 'testnet-stake-pool', {

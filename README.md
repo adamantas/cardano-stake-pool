@@ -1,4 +1,10 @@
-# Manta Project (Cardano Stake Pool)
+# DDAY Cardano Stake Pool
+DDAY Cardano stake pool was launched on March 31, 2021, the day known as D-DAY, or the day when Cardano network achieved 100% decentralization. 
+
+Our mission is always remembering that decentralization is extremely important and we are committed to build projects, share resources and educate people, in order to contribute to the further decentralization of the internet. 
+
+Using these instructions you will be able to launch  your own Cardano stake pool infrastructure on AWS in a fun and exciting way. Enjoy!
+
 ## Overview
 This is an AWS CDK (AWS Cloud Development Kit) app to automate launching a Cardano stake pool in AWS using true IaC (Infrastructure-as-Code) principles.
 
@@ -36,7 +42,7 @@ The rationale behind the Manta Project can be summarized by the following points
 
 
 ## Architecture
-![Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/cardano-stake-pool-architecture.png?raw=true)
+![Cardano Stake Pool Architecture](https://github.com/adamantas/cardano-stake-pool/blob/dev/images/dday-cardano-stake-pool-architecture.png?raw=true)
 
 ### Key highlights of the architecture:
 * All infrastructure components reside in VPC (Virtual Private Cloud)
@@ -239,7 +245,7 @@ _Indeed, if you supply the name of a stack to the `cdk synth` command, you will 
 [local $] cdk synth testnet-core
 ```
 
-_This is an AWS CloudFormation template that you'd have to write yourself (in YAML, Karl!!!), or JSON (which is even worse), if we didn't use AWS CDK. CDK makes it much more fun to code in TypeScript and has sensible defaults to shorten VPC launch code to just one line:_
+_This is an AWS CloudFormation template that you'd have to write yourself (in YAML or JSON), if we didn't use AWS CDK. CDK makes it much more fun to code in TypeScript and has sensible defaults to shorten VPC launch code to just one line:_
 ```
 this.vpc = new ec2.Vpc(this, 'VPC');
 ```
@@ -248,7 +254,7 @@ _and for people who think that it's fun to code in markup languages, there is a 
 ### Deploying testnet core stack
 Do: 
 ```
-[local $] cdk deploy testnet-core
+[local $] scripts/create core testnet
 ```
 This will deploy the testnet VPC. 
 
@@ -256,10 +262,12 @@ _Note: CDK usually summarizes the changes it is about to make asking for confirm
 
 _While stack launch is in progress, you can do a few things to keep yourself entertained. You can watch the progress in the terminal console, yes. But also you can go to AWS Console and then to Cloud Formation and see the stack being launched, and then also you can go to VPC to see how your VPC is launching. Fascinating stuffs._
 
+_Note: peeking inside the scripts not only allowed, but encouraged_
+
 ### Deploying binaries build stack
 Do:
 ```
-[local $] cdk deploy testnet-bin-build
+[local $] scripts/create bb testnet
 ```
 This will again ask you for your almighty `'y'` and it should be relatively quick to launch an EC2 instance that will be building Cardano binaries for us. 
 
@@ -269,7 +277,7 @@ Don't you worry. We've got some for you.
 
 Connect to the EC2 instance:
 ```
-[local $] scripts/connect-bb.sh testnet
+[local $] scripts/connect bb testnet
 ```
 
 and then just watch the tail of the log. There has to be an Irish tune with such a name: "Watching the Tail of the Log". If there is none, I should write one myself, or ain't I a true Irish? 
@@ -292,7 +300,7 @@ If it's there, we are happy campers.
 ### Launch testnet stake pool
 Do:
 ```
-[local $] cdk deploy testnet-stake-pool
+[local $] scripts/create sp testnet
 
 ```
 Okey, you should get used to the drill already. You pressed your almighty `'y'`, you watched some stack launch progress in the terminal console and eventually it has finished. Now what? 
@@ -307,7 +315,7 @@ _- Relay!!!_
 
 Do:
 ```
-[local $] scripts/connect-relay.sh testnet
+[local $] scripts/connect relay testnet
 ```
 
 Okey, so now we are in really unfamiliar land, so let's explore. First of all we don't know even who we are and where we are. So, let's find out!
@@ -383,7 +391,7 @@ If you see that instead of `syncing` message there is `Tip (diff)` one, it means
 
 Now do:
 ```
-[local $] scripts/take-snapshot.sh testnet
+[local $] scripts/snapshot relay testnet
 ```
 
 Give the script time to complete (about a minute for 24gb volume) and then copy the snapshot id (snap-xxxxxxxxxx) to your `config.ts` file under the `node_groups`, so it looks similar to this:
@@ -421,7 +429,7 @@ Now that you have a ledger snapshot, let's see how quickly you can recreate the 
 ### Deleting the stake pool
 You can delete the stake pool by one command.
 ```
-[local $] scripts/delete-stake-pool.sh testnet-stake-pool
+[local $] scripts/delete sp testnet
 ```
 
 Now let's launch the stake pool in testnet again
@@ -429,7 +437,7 @@ Now let's launch the stake pool in testnet again
 ### Restoring stake pool 
 To restore the stake pool, you just need to redeploy the stack. It will take the compiled binaries from S3 and restore the EBS volume containing the ledger from the snapshot. 
 ```
-[local $] cdk deploy testnet-stake-pool
+[local $] scripts/create sp testnet
 ```
 Once the pool is launched, follow the same instructions above to launch GLiveView and see if your relay node is performing fine. 
 
@@ -437,7 +445,7 @@ Once the pool is launched, follow the same instructions above to launch GLiveVie
 Once you got comfortable with launching/deleting/restoring stake pool in testnet, you might want to try the real thing. Launch it in mainnet. Ooo, scary, isn't it? But don't worry it's exactly the same as launching in testnet, you only should substitute the word `testnet` for `mainnet` in all your commands. Try it and see it how it works for you. 
 
 ### Musings about air-gapped server
-If you hear this term for the first time in your life and thinking 'what the hell is 'air-gapped server?', you are not alone. I was thinking exactly the same thing. It seemed to me that this term comes more from the world of many shades of gray, where choking servers out of air is considered a fancy kink. But, apparently, it means that it's the server 'that has a gap of air around it', in a sense that it's not connected to any network. This is clearly the case of some geeky poetical metaphorism, because even you have a gap of air, it can still be connected (heard of Wi-Fi, hello?), and if you want to say that it's not connected to anything, why don't you just say so? But according to Wikipedia this analogy comes not from anywhere but from plumbing. And if you grew up in 90s, you know how we all wanted to be German plumbers, but by some wicked twist of fate we ended up in IT. Anyhow, it's called "air-gapped server", so we stick with this term. And what it is really needed for is to "keep your cold keys". 
+If you hear this term for the first time in your life and thinking 'what the hell is 'air-gapped server?', you are not alone. I was thinking exactly the same thing. Apparently, it means that it's the server 'that has a gap of air around it', in a sense that it's not connected to any network. This is clearly a case of some geeky poetical metaphorism, because even you have a gap of air, it can still be connected (heard of Wi-Fi, hello?), and if you want to say that it's not connected to anything, why don't you just say so? Anyhow, it's called "air-gapped server", so we stick with this term. And what it is really needed for is to keep your cold keys and sign transactions. 
 
 >  Keep your cold keys away from me, would you?
 >  -  _Your hot server_
@@ -449,7 +457,7 @@ Wow. Further it goes, more interesting it gets. Now we also need some cage, beca
 
 But I'll leave it up to you to find this practical fine edge between carelesness of sticking your cold keys into the hot environment and downright non-sensical paranoia of keeping servers in faraday cages, so swipers couldn't swipe them. 
 
-As for me, I just took old gaming desktop computer my son didn't need anymore, disabled all network interfaces in BIOS, installed Ubuntu LTS with hard drive encryption option, and have been transferring all data between cold and hot environments on a USB flash drive. And installed video cameras and barbed wire perimeter all around the house. (kidding)
+As for me, I just took old gaming desktop computer my son didn't need anymore, disabled all network interfaces in BIOS, installed Ubuntu LTS with hard drive encryption option, and have been transferring all data between cold and hot environments on a USB flash drive. And installed video cameras and barbed wire perimeter all around the house to catch weirdos. (kidding)
 
 ### Configuring your stake pool
 This part doesn't make sense to automate and script. It's impossible to do it end-to-end, since it envolves passing signed transactions between you air-gapped server and 'hot' server, and also, as a stake pool operator, you need to know all these commands by hand. I have followed excellent [CoinCashew Tutorial](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node) and it worked well for me. 

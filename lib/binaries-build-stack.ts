@@ -94,7 +94,8 @@ export class CardanoBinariesBuildStack extends cdk.Stack {
       role: instanceRole,
     });
 
-    cdk.Tags.of(instance).add('InstanceType', `binaries-build-${props.config.network}`);
+    cdk.Tags.of(instance).add('NodeType', 'BinBuild');
+    cdk.Tags.of(instance).add('CardanoNetwork', props.config.network);
 
   }
 }
